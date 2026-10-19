@@ -58,4 +58,10 @@ public class PeliculaController {
     public void eliminar(@PathVariable Long id) {
         peliculaService.eliminar(id);
     }
+
+    @PostMapping("/{peliculaId}/actores/{actorId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PeliculaResponse asignarActor(@PathVariable Long peliculaId, @PathVariable Long actorId) {
+        return peliculaMapper.toResponse(peliculaService.asignarActor(peliculaId, actorId));
+    }
 }
