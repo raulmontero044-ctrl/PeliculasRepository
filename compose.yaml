@@ -1,0 +1,27 @@
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: peliculas
+      MARIADB_USER: peliculas
+      MARIADB_PASSWORD: peliculas
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/peliculas
+      SPRING_DATASOURCE_USERNAME: peliculas
+      SPRING_DATASOURCE_PASSWORD: peliculas
+    ports:
+      - "8080:8080"
