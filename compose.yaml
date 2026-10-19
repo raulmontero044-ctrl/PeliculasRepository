@@ -8,6 +8,8 @@ services:
       MARIADB_ROOT_PASSWORD: root
     ports:
       - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -25,3 +27,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: peliculas
     ports:
       - "8080:8080"
+
+volumes:
+  mariadb_data:
