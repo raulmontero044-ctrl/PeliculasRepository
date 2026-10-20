@@ -1,6 +1,7 @@
 package org.example.peliculas.controllers.auth;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,11 +9,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-import org.example.peliculas.domain.ParTokens;
-import org.example.peliculas.domain.repository.AuthTokenRepository;
-import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.soporte.TokenValidatorFalso;
+import org.example.peliculas.soporte.TokenValidatorFalsoConfig;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +19,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TokenValidatorFalsoConfig.class)
 @Transactional
 class TokenAuthenticationFilterTest {
 
@@ -44,20 +45,18 @@ class TokenAuthenticationFilterTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private AuthService authService;
+    private TokenValidatorFalso tokenValidator;
 
-    @Autowired
-    private AuthTokenRepository authTokenRepository;
-
-    private String username;
-    private final String password = "secret123";
     private String tokenValido;
 
     @BeforeEach
-    void autenticar() {
-        username = "usuario-" + UUID.randomUUID();
-        authService.register(username, password);
-        tokenValido = authService.login(username, password).accessToken().getToken();
+    void emitirToken() {
+        tokenValido = tokenValidator.emitir("raul");
+    }
+
+    @AfterEach
+    void reactivarServicio() {
+        tokenValidator.reactivar();
     }
 
     @Test
@@ -121,10 +120,10 @@ class TokenAuthenticationFilterTest {
 
     @Test
     void post_conRefreshToken_devuelve401() throws Exception {
-        ParTokens par = obtenerParDeTokens();
+        String refresh = tokenValidator.emitirRefresh("raul");
 
         mockMvc.perform(post("/api/peliculas")
-                        .header("Authorization", "Bearer " + par.refreshToken().getToken())
+                        .header("Authorization", "Bearer " + refresh)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PELICULA_NUEVA))
                 .andExpect(status().isUnauthorized())
@@ -133,13 +132,10 @@ class TokenAuthenticationFilterTest {
 
     @Test
     void post_conAccessTokenExpirado_devuelve401() throws Exception {
-        ParTokens par = obtenerParDeTokens();
-        var expirado = par.accessToken();
-        expirado.setExpiresAt(LocalDateTime.now().minusMinutes(1));
-        authTokenRepository.save(expirado);
+        String expirado = tokenValidator.emitirExpirado("raul");
 
         mockMvc.perform(post("/api/peliculas")
-                        .header("Authorization", "Bearer " + expirado.getToken())
+                        .header("Authorization", "Bearer " + expirado)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PELICULA_NUEVA))
                 .andExpect(status().isUnauthorized())
@@ -157,8 +153,22 @@ class TokenAuthenticationFilterTest {
     }
 
     @Test
-    void lasRutasDeAuthNoSeFiltran() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
+    void post_conServicioDeAuthCaido_devuelve503() throws Exception {
+        tokenValidator.caer();
+
+        mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", "Bearer " + tokenValido)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PELICULA_NUEVA))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.mensaje")
+                        .value(TokenValidatorFalso.MENSAJE_NO_DISPONIBLE));
+    }
+
+    @Test
+    void postAUnaRutaNoProtegida_noDevuelve401() throws Exception {
+        var resultado = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -166,11 +176,8 @@ class TokenAuthenticationFilterTest {
                                   "password": "cualquiera"
                                 }
                                 """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.mensaje").value("Usuario no existe"));
-    }
+                .andReturn();
 
-    private ParTokens obtenerParDeTokens() {
-        return authService.login(username, password);
+        assertNotEquals(401, resultado.getResponse().getStatus());
     }
 }
