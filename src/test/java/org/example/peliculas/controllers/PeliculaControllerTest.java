@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.soporte.TokensPrueba;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +39,16 @@ class PeliculaControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private AuthService authService;
+
+    private String auth;
+
+    @BeforeEach
+    void autenticar() {
+        auth = TokensPrueba.bearer(authService);
+    }
 
     @Test
     void listar_devuelveTodasLasPeliculas() throws Exception {
@@ -69,6 +82,7 @@ class PeliculaControllerTest {
     @Test
     void crear_valida_devuelve201() throws Exception {
         mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PELICULA_VALIDA))
                 .andExpect(status().isCreated())
@@ -90,6 +104,7 @@ class PeliculaControllerTest {
                 """;
 
         mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(duplicada))
                 .andExpect(status().isConflict())
@@ -110,6 +125,7 @@ class PeliculaControllerTest {
                 """;
 
         mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalida))
                 .andExpect(status().isBadRequest())
@@ -119,6 +135,7 @@ class PeliculaControllerTest {
     @Test
     void crear_jsonMalformado_devuelve400() throws Exception {
         mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"titulo\": "))
                 .andExpect(status().isBadRequest())
@@ -130,6 +147,7 @@ class PeliculaControllerTest {
         String invalida = PELICULA_VALIDA.replace("DRAMA", "NO_EXISTE");
 
         mockMvc.perform(post("/api/peliculas")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalida))
                 .andExpect(status().isBadRequest());
@@ -140,6 +158,7 @@ class PeliculaControllerTest {
         String cambio = PELICULA_VALIDA.replace("Pelicula Nueva", "Forrest Gump v2").replace("2020", "1994");
 
         mockMvc.perform(put("/api/peliculas/1")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cambio))
                 .andExpect(status().isOk())
@@ -149,6 +168,7 @@ class PeliculaControllerTest {
     @Test
     void actualizar_inexistente_devuelve404() throws Exception {
         mockMvc.perform(put("/api/peliculas/999")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PELICULA_VALIDA))
                 .andExpect(status().isNotFound());
@@ -168,6 +188,7 @@ class PeliculaControllerTest {
                 """;
 
         mockMvc.perform(put("/api/peliculas/1")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(duplicada))
                 .andExpect(status().isConflict());
@@ -175,7 +196,7 @@ class PeliculaControllerTest {
 
     @Test
     void eliminar_existente_devuelve204() throws Exception {
-        mockMvc.perform(delete("/api/peliculas/1"))
+        mockMvc.perform(delete("/api/peliculas/1").header("Authorization", auth))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/peliculas/1"))
@@ -184,7 +205,7 @@ class PeliculaControllerTest {
 
     @Test
     void eliminar_inexistente_devuelve404() throws Exception {
-        mockMvc.perform(delete("/api/peliculas/999"))
+        mockMvc.perform(delete("/api/peliculas/999").header("Authorization", auth))
                 .andExpect(status().isNotFound());
     }
 }
