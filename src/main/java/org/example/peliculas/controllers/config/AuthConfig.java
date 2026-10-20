@@ -1,7 +1,7 @@
 package org.example.peliculas.controllers.config;
 
 import org.example.peliculas.controllers.auth.TokenAuthenticationFilter;
-import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.domain.repository.TokenValidator;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,8 +13,9 @@ public class AuthConfig {
 
     @Bean
     public FilterRegistrationBean<TokenAuthenticationFilter> tokenAuthenticationFilter(
-            AuthService authService, ObjectMapper objectMapper) {
-        TokenAuthenticationFilter filtro = new TokenAuthenticationFilter(authService, objectMapper);
+            TokenValidator tokenValidator, ObjectMapper objectMapper) {
+        TokenAuthenticationFilter filtro = new TokenAuthenticationFilter(tokenValidator,
+                objectMapper);
         FilterRegistrationBean<TokenAuthenticationFilter> registro = new FilterRegistrationBean<>(filtro);
         registro.addUrlPatterns("/*");
         registro.setName("tokenAuthenticationFilter");

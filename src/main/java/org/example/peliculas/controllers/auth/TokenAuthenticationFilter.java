@@ -5,11 +5,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.example.peliculas.controllers.dto.ErrorRespuesta;
+import org.example.peliculas.domain.exceptions.AuthNoDisponibleException;
 import org.example.peliculas.domain.exceptions.AutenticacionException;
 import org.example.peliculas.domain.exceptions.TokenInvalidoException;
-import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.domain.repository.TokenValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,11 +24,11 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private static final String RAIZ_ACTORES = "/api/actores";
     private static final String PREFIJO_BEARER = "Bearer";
 
-    private final AuthService authService;
+    private final TokenValidator tokenValidator;
     private final ObjectMapper objectMapper;
 
-    public TokenAuthenticationFilter(AuthService authService, ObjectMapper objectMapper) {
-        this.authService = authService;
+    public TokenAuthenticationFilter(TokenValidator tokenValidator, ObjectMapper objectMapper) {
+        this.tokenValidator = tokenValidator;
         this.objectMapper = objectMapper;
     }
 
@@ -39,9 +41,12 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            authService.validateAccessToken(extraerToken(request));
+            tokenValidator.validar(extraerToken(request));
+        } catch (AuthNoDisponibleException ex) {
+            responder(request, response, HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+            return;
         } catch (AutenticacionException ex) {
-            responderNoAutorizado(request, response, ex);
+            responder(request, response, HttpStatus.UNAUTHORIZED, ex.getMessage());
             return;
         }
 
@@ -68,7 +73,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         int posicion = cabecera.indexOf(' ');
         if (posicion < 0 || !PREFIJO_BEARER.equalsIgnoreCase(cabecera.substring(0, posicion).trim())) {
             throw new TokenInvalidoException(
-                    "Cabecera Authorization invÃ¡lida: se espera 'Bearer <token>'");
+                    "Cabecera Authorization inválida: se espera 'Bearer <token>'");
         }
         String token = cabecera.substring(posicion + 1).trim();
         if (token.isEmpty()) {
@@ -77,11 +82,11 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         return token;
     }
 
-    private void responderNoAutorizado(HttpServletRequest request, HttpServletResponse response,
-                                       AutenticacionException ex) throws IOException {
-        ErrorRespuesta cuerpo = ErrorRespuesta.de(HttpStatus.UNAUTHORIZED, ex.getMessage(),
-                request.getRequestURI(), null);
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+    private void responder(HttpServletRequest request, HttpServletResponse response,
+                           HttpStatus estado, String mensaje) throws IOException {
+        ErrorRespuesta cuerpo = ErrorRespuesta.de(estado, mensaje, request.getRequestURI(), null);
+        response.setStatus(estado.value());
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write(objectMapper.writeValueAsString(cuerpo));
     }

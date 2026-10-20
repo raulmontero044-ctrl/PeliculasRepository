@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -62,35 +61,5 @@ class MigracionesFlywayTest {
                 Integer.class);
 
         assertEquals(asignaciones, conJoin);
-    }
-
-    @Test
-    void lasTablasDeAutenticacionSeCreanVacias() {
-        assertEquals(Integer.valueOf(0),
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM usuarios", Integer.class));
-        assertEquals(Integer.valueOf(0),
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auth_tokens", Integer.class));
-    }
-
-    @Test
-    void elUsernameDeUsuarioEsUnico() {
-        String sql = "INSERT INTO usuarios (username, password_hash, enabled) VALUES (?, ?, ?)";
-        jdbcTemplate.update(sql, "duplicado", "hash", true);
-
-        assertThrows(DataIntegrityViolationException.class,
-                () -> jdbcTemplate.update(sql, "duplicado", "hash", true));
-    }
-
-    @Test
-    void elTipoDeTokenSoloAdmiteAccessORefresh() {
-        jdbcTemplate.update("INSERT INTO usuarios (username, password_hash, enabled) VALUES (?, ?, ?)",
-                "admin", "hash", true);
-        Long userId = jdbcTemplate.queryForObject(
-                "SELECT id FROM usuarios WHERE username = ?", Long.class, "admin");
-
-        assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
-                "INSERT INTO auth_tokens (token, user_id, tipo, expires_at) VALUES (?, ?, ?, ?)",
-                "token-falso", userId, "INVALIDO",
-                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().plusDays(1))));
     }
 }

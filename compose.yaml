@@ -16,17 +16,50 @@ services:
       timeout: 5s
       retries: 10
 
+  db-auth:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: auth
+      MARIADB_USER: auth
+      MARIADB_PASSWORD: auth
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3308:3306"
+    volumes:
+      - auth_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    build: ./auth-service
+    depends_on:
+      db-auth:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db-auth:3306/auth
+      SPRING_DATASOURCE_USERNAME: auth
+      SPRING_DATASOURCE_PASSWORD: auth
+    ports:
+      - "8081:8081"
+
   app:
     build: .
     depends_on:
       db:
         condition: service_healthy
+      auth:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/peliculas
       SPRING_DATASOURCE_USERNAME: peliculas
       SPRING_DATASOURCE_PASSWORD: peliculas
+      AUTH_SERVICE_URL: http://auth:8081
     ports:
       - "8080:8080"
 
 volumes:
   mariadb_data:
+  auth_data:
