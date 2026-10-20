@@ -4,6 +4,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.soporte.TokensPrueba;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,9 +24,20 @@ class AsignacionActoresTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private AuthService authService;
+
+    private String auth;
+
+    @BeforeEach
+    void autenticar() {
+        auth = TokensPrueba.bearer(authService);
+    }
+
     @Test
     void asignar_actor_valido_devuelve201ConLaPelicula() throws Exception {
-        mockMvc.perform(post("/api/peliculas/1/actores/2"))
+        mockMvc.perform(post("/api/peliculas/1/actores/2")
+                        .header("Authorization", auth))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.actores").isArray());
@@ -31,20 +45,23 @@ class AsignacionActoresTest {
 
     @Test
     void asignar_actor_yaAsignado_devuelve409() throws Exception {
-        mockMvc.perform(post("/api/peliculas/1/actores/1"))
+        mockMvc.perform(post("/api/peliculas/1/actores/1")
+                        .header("Authorization", auth))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test
     void asignar_actor_inexistente_devuelve404() throws Exception {
-        mockMvc.perform(post("/api/peliculas/1/actores/999"))
+        mockMvc.perform(post("/api/peliculas/1/actores/999")
+                        .header("Authorization", auth))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void asignar_a_pelicula_inexistente_devuelve404() throws Exception {
-        mockMvc.perform(post("/api/peliculas/999/actores/1"))
+        mockMvc.perform(post("/api/peliculas/999/actores/1")
+                        .header("Authorization", auth))
                 .andExpect(status().isNotFound());
     }
 }

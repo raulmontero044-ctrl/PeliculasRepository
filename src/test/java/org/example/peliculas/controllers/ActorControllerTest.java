@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.peliculas.domain.service.AuthService;
+import org.example.peliculas.soporte.TokensPrueba;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +36,16 @@ class ActorControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private AuthService authService;
+
+    private String auth;
+
+    @BeforeEach
+    void autenticar() {
+        auth = TokensPrueba.bearer(authService);
+    }
+
     @Test
     void listar_devuelveTodosLosActores() throws Exception {
         mockMvc.perform(get("/api/actores"))
@@ -56,6 +69,7 @@ class ActorControllerTest {
     @Test
     void crear_valido_devuelve201() throws Exception {
         mockMvc.perform(post("/api/actores")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ACTOR_VALIDO))
                 .andExpect(status().isCreated())
@@ -68,6 +82,7 @@ class ActorControllerTest {
         String invalido = ACTOR_VALIDO.replace("1970", "1500").replace("Mexico", "");
 
         mockMvc.perform(post("/api/actores")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalido))
                 .andExpect(status().isBadRequest())
@@ -77,25 +92,26 @@ class ActorControllerTest {
     @Test
     void eliminar_sinPeliculas_devuelve204() throws Exception {
         String creado = mockMvc.perform(post("/api/actores")
+                        .header("Authorization", auth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ACTOR_VALIDO))
                 .andReturn().getResponse().getContentAsString();
         String id = creado.replaceAll(".*\"id\"\\s*:\\s*(\\d+).*", "$1");
 
-        mockMvc.perform(delete("/api/actores/" + id))
+        mockMvc.perform(delete("/api/actores/" + id).header("Authorization", auth))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void eliminar_conPeliculas_devuelve409() throws Exception {
-        mockMvc.perform(delete("/api/actores/1"))
+        mockMvc.perform(delete("/api/actores/1").header("Authorization", auth))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test
     void eliminar_inexistente_devuelve404() throws Exception {
-        mockMvc.perform(delete("/api/actores/999"))
+        mockMvc.perform(delete("/api/actores/999").header("Authorization", auth))
                 .andExpect(status().isNotFound());
     }
 }
